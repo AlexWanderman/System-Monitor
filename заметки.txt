@@ -1,0 +1,56 @@
+Идеи:
++ Добавить отслеживание файловой системы дисков
++ Проверять "фиксированность" дисков не 'rw,fixed', а только на '...,fixed'
++ Изменить алгоритм передачи данных о дисках:
+    Регулярное выражение принимает только одну букву a-z, что если это не будет работать?
+
+Сообщение об успешной аутентификации - "Аутентификация пройдена"
+Сооющение о неудачной аутентификации - "Ошибка в имени или ключе"
+
+Символы в имени - a-zA-Zа-яА-Я0-9_
+Символы в ключе - a-zA-Zа-яА-Я0-9_!@#$%^&*()[]{}
+
+Запросы клиента:
+login -> name:([a-zA-Zа-яА-Я0-9_]+) key:([a-zA-Zа-яА-Я0-9_!@#$%^&*()\[\]{}]+)
+cpu -> type:cpu prc:([0-9]+)
+ram -> type:ram ttl:([0-9]+) avl:([0-9]+) prc:([0-9]+)
+swap -> type:swp ttl:([0-9]+) free:([0-9]+) prc:([0-9]+)
+disk -> type:dsk ltr:([a-z]) ttl:([0-9]+) free:([0-9]+) prc:([0-9]+)
+
+Остальное:
+type -> type:([a-z]+)
+
+Примеры запросов:
+name:login key:password
+type:cpu prc:43
+type:ram ttl:4535 avl:4345 prc:54
+type:swp ttl:4535 free:4345 prc:54
+type:dsk ltr:C:\\ ttl:5234 free:1342 prc:73
+
+Ответ на запросы: (доработать)
+Удачно - "+"
+Ошибка - "-"
+
+>>> import psutil
+
+>>> psutil.cpu_percent()
+1.6
+
+>>> ram = psutil.virtual_memory()
+>>> ram.total
+34235043840
+>>> ram.available
+22537478144
+>>> ram.percent
+34.2
+
+>>> psutil.swap_memory()
+sswap(total=39335317504, used=15900024832, free=23435292672, percent=40.4, sin=0, sout=0)
+
+>>> psutil.disk_partitions(all=False)
+[sdiskpart(device='C:\\', mountpoint='C:\\', fstype='NTFS', opts='rw,fixed'),
+ sdiskpart(device='D:\\', mountpoint='D:\\', fstype='NTFS', opts='rw,fixed'),
+ sdiskpart(device='E:\\', mountpoint='E:\\', fstype='NTFS', opts='rw,fixed'),
+ sdiskpart(device='F:\\', mountpoint='F:\\', fstype='FAT32', opts='rw,removable')]
+>>> psutil.disk_usage('D:\\')
+sdiskusage(total=2000263573504, used=922719735808, free=1077543837696, percent=46.1)
