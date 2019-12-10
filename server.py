@@ -29,8 +29,8 @@ class DataBaseConnection:
         con = connect(self.db_path)
         cur = con.cursor()
 
-        cur.execute('''select count(log) from Login
-                       where log = ? and pas = ?''',
+        cur.execute('''select count(name) from Login
+                       where name = ? and key = ? and is_active = 1''',
                     [name, key])
         i = cur.fetchall()[0][0]
 
@@ -52,25 +52,26 @@ class DataBaseConnection:
 
         elif tp == 'cpu':
             prc = self.recpu.findall(msg)[0]
-            print(f'name:{name} prc:{prc}')
+            print(f'name:{name} tp:{tp} prc:{prc}')
             cur.execute('insert into CPU values(?, ?, ?)',
                         [name, prc, dt.now()])
 
         elif tp == 'ram':
             ttl, avl, prc = self.reram.findall(msg)[0]
-            print(f'name:{name} ttl:{ttl} avl:{avl} prc:{prc}')
+            print(f'name:{name} tp:{tp} ttl:{ttl} avl:{avl} prc:{prc}')
             cur.execute('insert into RAM values(?, ?, ?, ?, ?)',
                         [name, ttl, avl, prc, dt.now()])
 
         elif tp == 'swp':
             ttl, free, prc = self.reswap.findall(msg)[0]
-            print(f'name:{name} ttl:{ttl} free:{free} prc:{prc}')
+            print(f'name:{name} tp:{tp} ttl:{ttl} free:{free} prc:{prc}')
             cur.execute('insert into Swap values(?, ?, ?, ?, ?)',
                         [name, ttl, free, prc, dt.now()])
 
         elif tp == 'dsk':
             ltr, ttl, free, prc = self.redisk.findall(msg)[0]
-            print(f'name:{name} ltr:{ltr} ttl:{ttl} free:{free} prc:{prc}')
+            print(f'name:{name} tp:{tp} ltr:{ltr} ttl:{ttl} ' +
+                  f'free:{free} prc:{prc}')
             cur.execute('insert into Disk values(?, ?, ?, ?, ?, ?)',
                         [name, ltr, ttl, free, prc, dt.now()])
 
@@ -109,8 +110,8 @@ class Server:
 
         print('Запуск сервера...')
 
-        st = Thread(target=self.server, args=())
-        st.start()
+        # Запуск сервера
+        self.server()
 
     def server(self):
         # Настройка соединения
@@ -173,8 +174,6 @@ class Server:
 
                 tp = self.retype.findall(msg)[0]
 
-                print(f'tp={tp}')
-
                 r = self.db_conn.write_data(login[0], tp, msg)
 
                 client_socket.send(r.encode())
@@ -187,5 +186,5 @@ class Server:
 if __name__ == "__main__":
     ip = 'localhost'
     port = 5000
-    dp_path = 'test.sqlite3'
+    dp_path = 'test.db'
     server = Server(ip, port, dp_path)

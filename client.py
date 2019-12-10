@@ -10,11 +10,12 @@ class Spectator:
 
     Получает запрос о том, какие данные считать и возвращает сообщение в виде
     str для отправки на сервер.
+
     '''
     def get_data(self, tp):
-        '''cpu -> str, ram -> str, swp -> str, disk -> list.'''
         if tp == 'cpu':
             prc = int(psutil.cpu_percent())
+
             return f'type:cpu prc:{prc}'
 
         elif tp == 'ram':
@@ -35,15 +36,11 @@ class Spectator:
 
             return f'type:swp ttl:{ttl} free:{free} prc:{prc}'
 
-        # Возвращает список
+        # Отправляет данные только о первом диске!
         elif tp == 'dsk':
             drives = psutil.disk_partitions(all=False)
-            paths = []
+            paths = [x.mountpoint for x in drives if x.opts == 'rw,fixed']
             result = []
-
-            for d in drives:
-                if d.opts == 'rw,fixed':
-                    paths.append(d.mountpoint)
 
             for p in paths:
                 dsk = psutil.disk_usage(p)
@@ -56,7 +53,7 @@ class Spectator:
                 t = f'type:dsk ltr:{ltr} ttl:{ttl} free:{free} prc:{prc}'
                 result.append(t)
 
-            return result
+            return result[0]
 
         else:
             raise TypeError('Неправильно указан запрошенный тип')
@@ -91,6 +88,7 @@ class Client:
         self.swp_timer = 12
         self.dsk_timer = 30
 
+        # Запуск клиентов
         self.client()
 
     def client(self):
@@ -114,7 +112,7 @@ class Client:
         Thread(target=self.monitor, args=('cpu', self.cpu_timer)).start()
         Thread(target=self.monitor, args=('ram', self.ram_timer)).start()
         Thread(target=self.monitor, args=('swp', self.swp_timer)).start()
-        # Thread(target=self.monitor, args=('dsk', self.dsk_timer)).start()
+        Thread(target=self.monitor, args=('dsk', self.dsk_timer)).start()
 
     def monitor(self, tp, period):
         while True:
