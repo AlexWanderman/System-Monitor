@@ -1,0 +1,70 @@
+Заметки:
+    1) Добавить проверку допустимых символов имени и ключа
+    2) Проверка даты
+    3) Проверка пути диска
+
+Символы в имени - a-zA-Zа-яА-Я0-9_
+Символы в ключе - a-zA-Zа-яА-Я0-9_!@#$%^&*()[]{}
+Формат даты - 2000-01-01 00:00:00.000000
+
+
+name:([a-zA-Zа-яА-Я0-9_]+) key:([a-zA-Zа-яА-Я0-9_!@#$%^&*()\[\]{}]+)
+name:login key:password
+
+CREATE TABLE "Login" (
+    "name" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "is_active" INTEGER DEFAULT 1 CHECK(is_active = 0 or is_active = 1),
+    PRIMARY KEY("name")
+);
+
+
+type:cpu prc:([0-9]+)
+type:cpu prc:43
+
+CREATE TABLE "CPU" (
+    "name" TEXT NOT NULL,
+    "prc" INTEGER NOT NULL CHECK(prc >= 0 and prc <= 100),
+    "date" TEXT NOT NULL,
+    FOREIGN KEY("name") REFERENCES "Login"("name") ON DELETE CASCADE
+);
+
+
+type:ram ttl:([0-9]+) avl:([0-9]+) prc:([0-9]+)
+type:ram ttl:4535 avl:4345 prc:54
+
+CREATE TABLE "RAM" (
+    "name" TEXT NOT NULL,
+    "ttl" INTEGER NOT NULL CHECK(ttl >= 0),
+    "avl" INTEGER NOT NULL CHECK(avl >= 0),
+    "prc" INTEGER NOT NULL CHECK(prc >= 0 and prc <= 100),
+    "date" TEXT NOT NULL,
+    FOREIGN KEY("name") REFERENCES "Login"("name") ON DELETE CASCADE
+);
+
+
+type:swp ttl:([0-9]+) free:([0-9]+) prc:([0-9]+)
+type:swp ttl:4535 free:4345 prc:54
+
+CREATE TABLE "Swap" (
+    "name" TEXT NOT NULL,
+    "ttl" INTEGER NOT NULL CHECK(ttl >= 0),
+    "free" INTEGER NOT NULL CHECK(free >= 0),
+    "prc" INTEGER NOT NULL CHECK(prc >= 0 and prc <= 100),
+    "date" TEXT NOT NULL,
+    FOREIGN KEY("name") REFERENCES "Login"("name") ON DELETE CASCADE
+);
+
+
+type:dsk ltr:([a-z]) ttl:([0-9]+) free:([0-9]+) prc:([0-9]+)
+type:dsk ltr:C:\\ ttl:5234 free:1342 prc:73
+
+CREATE TABLE "Disk" (
+    "name" TEXT NOT NULL,
+    "ltr" TEXT NOT NULL,
+    "ttl" INTEGER NOT NULL CHECK(ttl >= 0),
+    "free" INTEGER NOT NULL CHECK(free >= 0),
+    "prc" INTEGER NOT NULL CHECK(prc >= 0 and prc <= 100),
+    "date" TEXT NOT NULL,
+    FOREIGN KEY("name") REFERENCES "Login"("name") ON DELETE CASCADE
+);
