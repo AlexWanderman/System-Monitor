@@ -1,7 +1,7 @@
 from socket import *
 from threading import Thread
 from datetime import datetime as dt
-from sqlite3 import connect
+from sqlite3 import connect, IntegrityError
 import re
 
 
@@ -34,6 +34,8 @@ class DataBaseConnection:
                     [name, key])
         i = cur.fetchall()[0][0]
 
+        con.close()
+
         if i > 1:
             raise ValueError('Имя не уникально!')
 
@@ -42,15 +44,44 @@ class DataBaseConnection:
 
         return True
 
+    def create(self, name, key):
+        con = connect(self.db_path)
+        cur = con.cursor()
+
+        try:
+            cur.execute('insert into Login values(?, ?, 1)', [name, key])
+        except IntegrityError:
+            return False
+        else:
+            con.commit()
+            return True
+        finally:
+            con.close()
+
+    def delete(self, name):
+        con = connect(self.db_path)
+        cur = con.cursor()
+
+        cur.execute('delete from Login where name = ?', [name])
+
+        con.commit()
+        con.close()
+
+    def set_activity(self, name, is_active):
+        con = connect(self.db_path)
+        cur = con.cursor()
+
+        i = 1 if is_active else 0
+        cur.execute('update Login set is_active = ? where name = ?', [i, name])
+
+        con.commit()
+        con.close()
+
     def write_data(self, name, tp, msg):
         con = connect(self.db_path)
         cur = con.cursor()
 
-        if tp == 'test':
-            print('~ тест')
-            return '+'
-
-        elif tp == 'cpu':
+        if tp == 'cpu':
             prc = self.recpu.findall(msg)[0]
             print(f'name:{name} tp:{tp} prc:{prc}')
             cur.execute('insert into CPU values(?, ?, ?)',
@@ -77,9 +108,11 @@ class DataBaseConnection:
 
         else:
             print('~ ОШИБКА КОМАНДЫ!')
+            con.close()
             return '-'
 
         con.commit()
+        con.close()
         print('+ запись')
 
         return '+'
@@ -135,7 +168,6 @@ class Server:
 
             print(f'Поток запущен {addr}!')
 
-    # ! Переделать в певрвую очередь !
     def client_handler(self, client_socket, addr):
         # Аутентификация
         try:

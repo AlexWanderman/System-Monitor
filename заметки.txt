@@ -11,6 +11,9 @@
 Удачно - "+"
 Ошибка - "-"
 
+Exception has occurred: IntegrityError
+UNIQUE constraint failed: Login.name
+
 >>> import psutil
 
 >>> psutil.cpu_percent()
@@ -34,3 +37,24 @@ sswap(total=39335317504, used=15900024832, free=23435292672, percent=40.4, sin=0
  sdiskpart(device='F:\\', mountpoint='F:\\', fstype='FAT32', opts='rw,removable')]
 >>> psutil.disk_usage('D:\\')
 sdiskusage(total=2000263573504, used=922719735808, free=1077543837696, percent=46.1)
+
+>>> def test(n):
+...     try:
+...         assert n
+...     except Exception:
+...         print('f')
+...         return False
+...     else:
+...         print('t')
+...         return True
+...     finally:
+...         print('end')
+...
+>>> test(True)
+t
+end
+True
+>>> test(False)
+f
+end
+False
