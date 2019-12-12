@@ -1,7 +1,7 @@
 from socket import *
 from threading import Thread
 from datetime import datetime as dt
-from sqlite3 import connect, IntegrityError
+from sqlite3 import connect, IntegrityError, DatabaseError
 import re
 
 
@@ -25,10 +25,39 @@ class DataBaseConnection:
         self.redisk = re.compile(r'type:dsk ltr:([a-z]) ttl:([0-9]+) ' +
                                  r'free:([0-9]+) prc:([0-9]+)')
 
+    def _try_to_write(self, msg, data):
+        con = connect(self.db_path)
+        cur = con.cursor()
+
+        try:
+            cur.execute(msg, data)
+        except DatabaseError as e:
+            con.rollback()
+            print(f'ОШИБКА записи!\n{e}')
+            return '-'
+        else:
+            con.commit()
+            print(f'Запись произведена!')
+            return '+'
+        finally:
+            con.close()
+
+    def _try_to_read(self, msg):
+        pass
+
+    def setup_database(self):
+        con = connect(self.db_path)
+        cur = con.cursor()
+
+        ...
+
+        con.close()
+
     def authentication(self, name, key):
         con = connect(self.db_path)
         cur = con.cursor()
 
+        # Возможно ошибка
         cur.execute('''select count(name) from Login
                        where name = ? and key = ? and is_active = 1''',
                     [name, key])
@@ -45,77 +74,64 @@ class DataBaseConnection:
         return True
 
     def create(self, name, key):
-        con = connect(self.db_path)
-        cur = con.cursor()
+        msg = 'insert into Login values(?, ?, 1)'
+        data = [name, key]
 
-        try:
-            cur.execute('insert into Login values(?, ?, 1)', [name, key])
-        except IntegrityError:
-            return False
-        else:
-            con.commit()
-            return True
-        finally:
-            con.close()
+        return self._try_to_write(msg, key)
 
     def delete(self, name):
-        con = connect(self.db_path)
-        cur = con.cursor()
+        msg = 'delete from Login where name = ?'
+        data = [name]
 
-        cur.execute('delete from Login where name = ?', [name])
-
-        con.commit()
-        con.close()
+        return self._try_to_write(msg, data)
 
     def set_activity(self, name, is_active):
-        con = connect(self.db_path)
-        cur = con.cursor()
-
         i = 1 if is_active else 0
-        cur.execute('update Login set is_active = ? where name = ?', [i, name])
+        msg = 'update Login set is_active = ? where name = ?'
+        data = [i, name]
 
-        con.commit()
-        con.close()
+        return self._try_to_write(msg, data)
 
     def write_data(self, name, tp, msg):
-        con = connect(self.db_path)
-        cur = con.cursor()
-
+        # Перенести определение типа сюда
         if tp == 'cpu':
             prc = self.recpu.findall(msg)[0]
             print(f'name:{name} tp:{tp} prc:{prc}')
-            cur.execute('insert into CPU values(?, ?, ?)',
-                        [name, prc, dt.now()])
+
+            msg = 'insert into CPU values(?, ?, ?)'
+            data = [name, prc, dt.now()]
+            r = self._try_to_write(msg, data)
 
         elif tp == 'ram':
             ttl, avl, prc = self.reram.findall(msg)[0]
             print(f'name:{name} tp:{tp} ttl:{ttl} avl:{avl} prc:{prc}')
-            cur.execute('insert into RAM values(?, ?, ?, ?, ?)',
-                        [name, ttl, avl, prc, dt.now()])
+
+            msg = 'insert into Swap values(?, ?, ?, ?, ?)'
+            data = [name, ttl, avl, prc, dt.now()]
+            r = self._try_to_write(msg, data)
 
         elif tp == 'swp':
             ttl, free, prc = self.reswap.findall(msg)[0]
             print(f'name:{name} tp:{tp} ttl:{ttl} free:{free} prc:{prc}')
-            cur.execute('insert into Swap values(?, ?, ?, ?, ?)',
-                        [name, ttl, free, prc, dt.now()])
+
+            msg = 'insert into Swap values(?, ?, ?, ?, ?)'
+            data = [name, ttl, free, prc, dt.now()]
+            r = self._try_to_write(msg, data)
 
         elif tp == 'dsk':
             ltr, ttl, free, prc = self.redisk.findall(msg)[0]
             print(f'name:{name} tp:{tp} ltr:{ltr} ttl:{ttl} ' +
                   f'free:{free} prc:{prc}')
-            cur.execute('insert into Disk values(?, ?, ?, ?, ?, ?)',
-                        [name, ltr, ttl, free, prc, dt.now()])
+
+            msg = 'insert into Disk values(?, ?, ?, ?, ?, ?)'
+            data = [name, ltr, ttl, free, prc, dt.now()]
+            r = self._try_to_write(msg, data)
 
         else:
-            print('~ ОШИБКА КОМАНДЫ!')
-            con.close()
-            return '-'
+            print(f'ОШИБКА команды "{msg}"!')
+            r = '-'
 
-        con.commit()
-        con.close()
-        print('+ запись')
-
-        return '+'
+        return r
 
 
 class Server:
@@ -135,6 +151,7 @@ class Server:
         self.db_conn = DataBaseConnection(db_path)
 
         self.msg_size = 512
+        # Перенести в БД
         self.relogin = re.compile(
             r'name:([a-zA-Zа-яА-Я0-9_]+) ' +
             r'key:([a-zA-Zа-яА-Я0-9_!@#$%^&*()\[\]{}]+)'
