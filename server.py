@@ -164,7 +164,7 @@ class DataBaseConnection:
         msg = 'insert into Login values(?, ?, 1)'
         data = [name, key]
 
-        return self._try_to_write(msg, key)
+        return self._try_to_write(msg, data)
 
     def delete(self, name):
         msg = 'delete from Login where name = ?'
