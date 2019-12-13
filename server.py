@@ -1,8 +1,8 @@
-from socket import *
-from threading import Thread
-from datetime import datetime as dt
-from sqlite3 import connect, IntegrityError, DatabaseError
 import re
+from datetime import datetime as dt
+from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
+from sqlite3 import DatabaseError, IntegrityError, connect
+from threading import Thread
 
 
 class DataBaseConnection:
@@ -17,15 +17,92 @@ class DataBaseConnection:
     def __init__(self, db_path):
         self.db_path = db_path
 
-        self.recpu = re.compile(r'type:cpu prc:([0-9]+)')
-        self.reram = re.compile(r'type:ram ttl:([0-9]+) avl:([0-9]+) ' +
-                                r'prc:([0-9]+)')
-        self.reswap = re.compile(r'type:swp ttl:([0-9]+) free:([0-9]+) ' +
+        self.re_cpu = re.compile(r'type:cpu prc:([0-9]+)')
+        self.re_ram = re.compile(r'type:ram ttl:([0-9]+) avl:([0-9]+) ' +
                                  r'prc:([0-9]+)')
-        self.redisk = re.compile(r'type:dsk ltr:([a-z]) ttl:([0-9]+) ' +
-                                 r'free:([0-9]+) prc:([0-9]+)')
+        self.re_swap = re.compile(r'type:swp ttl:([0-9]+) free:([0-9]+) ' +
+                                  r'prc:([0-9]+)')
+        self.re_disk = re.compile(r'type:dsk ltr:([a-z]) ttl:([0-9]+) ' +
+                                  r'free:([0-9]+) prc:([0-9]+)')
 
-    def _try_to_write(self, msg, data):
+        self.sql_login = '''CREATE TABLE "Login" (
+                            "name" TEXT NOT NULL,
+                            "key" TEXT NOT NULL,
+                            "is_active" INTEGER CHECK(
+                                is_active = 0 or
+                                is_active = 1
+                                ),
+                            PRIMARY KEY("name"))'''
+
+        self.sql_cpu = '''CREATE TABLE "CPU" (
+                            "name" TEXT NOT NULL,
+                            "prc" INTEGER NOT NULL CHECK(prc>=0 and prc<=100),
+                            "date" TEXT NOT NULL,
+                            FOREIGN KEY("name") REFERENCES "Login"("name")
+                                ON DELETE CASCADE)'''
+
+        self.sql_ram = '''CREATE TABLE "RAM" (
+                            "name" TEXT NOT NULL,
+                            "ttl" INTEGER NOT NULL CHECK(ttl >= 0),
+                            "avl" INTEGER NOT NULL CHECK(avl >= 0),
+                            "prc" INTEGER NOT NULL CHECK(
+                                prc >=0 and
+                                prc <= 100
+                                ),
+                            "date" TEXT NOT NULL,
+                            FOREIGN KEY("name") REFERENCES "Login"("name")
+                                ON DELETE CASCADE)'''
+
+        self.sql_swap = '''CREATE TABLE "Swap" (
+                            "name" TEXT NOT NULL,
+                            "ttl" INTEGER NOT NULL CHECK(ttl >= 0),
+                            "free" INTEGER NOT NULL CHECK(free >= 0),
+                            "prc" INTEGER NOT NULL CHECK(
+                                prc >= 0 and
+                                prc <= 100
+                                ),
+                            "date" TEXT NOT NULL,
+                            FOREIGN KEY("name") REFERENCES "Login"("name")
+                                ON DELETE CASCADE)'''
+
+        self.sql_disk = '''CREATE TABLE "Disk" (
+                            "name" TEXT NOT NULL,
+                            "ltr" TEXT NOT NULL,
+                            "ttl" INTEGER NOT NULL CHECK(ttl >= 0),
+                            "free" INTEGER NOT NULL CHECK(free >= 0),
+                            "prc" INTEGER NOT NULL CHECK(
+                                prc >= 0 and
+                                prc <= 100
+                                ),
+                            "date" TEXT NOT NULL,
+                            FOREIGN KEY("name") REFERENCES "Login"("name")
+                            ON DELETE CASCADE)'''
+
+        self.sql_log = '''CREATE TABLE "Log" (
+                            "name" TEXT NOT NULL,
+                            "msg" TEXT NOT NULL,
+                            "is_added" INTEGER NOT NULL CHECK(
+                                is_added = 0 or
+                                is_added = 1
+                                ),
+                            "error" TEXT,
+                            "date" TEXT NOT NULL,
+                            FOREIGN KEY("name") REFERENCES "Login"("name")
+                            ON DELETE CASCADE);'''
+
+        self.tables = {
+            'Login': self.sql_login,
+            'CPU': self.sql_cpu,
+            'RAM': self.sql_ram,
+            'Swap': self.sql_swap,
+            'Disk': self.sql_disk,
+            'Log': self.sql_log,
+        }
+
+        # Проверка БД
+        self.setup_database()
+
+    def _try_to_write(self, msg, data=()):
         con = connect(self.db_path)
         cur = con.cursor()
 
@@ -34,38 +111,48 @@ class DataBaseConnection:
         except DatabaseError as e:
             con.rollback()
             print(f'ОШИБКА записи!\n{e}')
-            return '-'
+            return False
         else:
             con.commit()
             print(f'Запись произведена!')
-            return '+'
+            return True
         finally:
             con.close()
 
-    def _try_to_read(self, msg):
-        pass
+    def _try_to_read(self, msg, data=()):
+        con = connect(self.db_path)
+        cur = con.cursor()
+
+        r = cur.execute(msg, data).fetchall()
+        con.close()
+
+        return r
 
     def setup_database(self):
         con = connect(self.db_path)
         cur = con.cursor()
 
-        ...
+        msg = 'select * from sqlite_master where type = "table"'
+        names = [x[1] for x in self._try_to_read(msg)]
+
+        for table, sql in self.tables.items():
+            if table in names:
+                continue
+
+            cur.execute(sql)
+            con.commit()
 
         con.close()
 
     def authentication(self, name, key):
-        con = connect(self.db_path)
-        cur = con.cursor()
-
-        # Возможно ошибка
-        cur.execute('''select count(name) from Login
-                       where name = ? and key = ? and is_active = 1''',
-                    [name, key])
-        i = cur.fetchall()[0][0]
-
-        con.close()
+        msg = '''select count(name) from Login
+            where name = ? and key = ? and is_active = 1'''
+        data = [name, key]
+        r = self._try_to_read(msg, data)
+        i = r[0][0]
 
         if i > 1:
+            # Эта ошибка не может возникнуть (должно совпасть имя и пароль)
             raise ValueError('Имя не уникально!')
 
         if i is 0:
@@ -95,7 +182,7 @@ class DataBaseConnection:
     def write_data(self, name, tp, msg):
         # Перенести определение типа сюда
         if tp == 'cpu':
-            prc = self.recpu.findall(msg)[0]
+            prc = self.re_cpu.findall(msg)[0]
             print(f'name:{name} tp:{tp} prc:{prc}')
 
             msg = 'insert into CPU values(?, ?, ?)'
@@ -103,7 +190,7 @@ class DataBaseConnection:
             r = self._try_to_write(msg, data)
 
         elif tp == 'ram':
-            ttl, avl, prc = self.reram.findall(msg)[0]
+            ttl, avl, prc = self.re_ram.findall(msg)[0]
             print(f'name:{name} tp:{tp} ttl:{ttl} avl:{avl} prc:{prc}')
 
             msg = 'insert into Swap values(?, ?, ?, ?, ?)'
@@ -111,7 +198,7 @@ class DataBaseConnection:
             r = self._try_to_write(msg, data)
 
         elif tp == 'swp':
-            ttl, free, prc = self.reswap.findall(msg)[0]
+            ttl, free, prc = self.re_swap.findall(msg)[0]
             print(f'name:{name} tp:{tp} ttl:{ttl} free:{free} prc:{prc}')
 
             msg = 'insert into Swap values(?, ?, ?, ?, ?)'
@@ -119,7 +206,7 @@ class DataBaseConnection:
             r = self._try_to_write(msg, data)
 
         elif tp == 'dsk':
-            ltr, ttl, free, prc = self.redisk.findall(msg)[0]
+            ltr, ttl, free, prc = self.re_disk.findall(msg)[0]
             print(f'name:{name} tp:{tp} ltr:{ltr} ttl:{ttl} ' +
                   f'free:{free} prc:{prc}')
 
@@ -129,9 +216,9 @@ class DataBaseConnection:
 
         else:
             print(f'ОШИБКА команды "{msg}"!')
-            r = '-'
+            r = False
 
-        return r
+        return '+' if r else '-'
 
 
 class Server:
