@@ -1,7 +1,7 @@
 import re
 from datetime import datetime as dt
 from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
-from sqlite3 import DatabaseError, IntegrityError, connect
+from sqlite3 import DatabaseError, connect
 from threading import Thread
 
 
@@ -110,12 +110,12 @@ class DataBaseConnection:
             cur.execute(msg, data)
         except DatabaseError as e:
             con.rollback()
-            print(f'ОШИБКА записи!\n{e}')
-            return False
+            # print(f'ОШИБКА записи!\n{e}')
+            return False, e
         else:
             con.commit()
-            print(f'Запись произведена!')
-            return True
+            # print(f'Запись произведена!')
+            return True, None
         finally:
             con.close()
 
@@ -127,6 +127,21 @@ class DataBaseConnection:
         con.close()
 
         return r
+
+    def _sql_log(self, name, msg, is_added, error=None):
+        msg_ = 'insert into Log values(?, ?, ?, ?, ?)'
+        data = [
+            name,
+            msg,
+            1 if is_added else 0,
+            error,
+            dt.now(),
+        ]
+
+        r, e = self._try_to_write(msg_, data)
+
+        if not r:
+            print(f'{name}, {msg}\n{e}')
 
     def setup_database(self):
         con = connect(self.db_path)
@@ -183,36 +198,44 @@ class DataBaseConnection:
         # Перенести определение типа сюда
         if tp == 'cpu':
             prc = self.re_cpu.findall(msg)[0]
-            print(f'name:{name} tp:{tp} prc:{prc}')
+            # print(f'name:{name} tp:{tp} prc:{prc}')
 
             msg = 'insert into CPU values(?, ?, ?)'
             data = [name, prc, dt.now()]
-            r = self._try_to_write(msg, data)
+            r, e = self._try_to_write(msg, data)
+
+            self._sql_log(name, msg, r, e)
 
         elif tp == 'ram':
             ttl, avl, prc = self.re_ram.findall(msg)[0]
-            print(f'name:{name} tp:{tp} ttl:{ttl} avl:{avl} prc:{prc}')
+            # print(f'name:{name} tp:{tp} ttl:{ttl} avl:{avl} prc:{prc}')
 
             msg = 'insert into Swap values(?, ?, ?, ?, ?)'
             data = [name, ttl, avl, prc, dt.now()]
-            r = self._try_to_write(msg, data)
+            r, e = self._try_to_write(msg, data)
+
+            self._sql_log(name, msg, r, e)
 
         elif tp == 'swp':
             ttl, free, prc = self.re_swap.findall(msg)[0]
-            print(f'name:{name} tp:{tp} ttl:{ttl} free:{free} prc:{prc}')
+            # print(f'name:{name} tp:{tp} ttl:{ttl} free:{free} prc:{prc}')
 
             msg = 'insert into Swap values(?, ?, ?, ?, ?)'
             data = [name, ttl, free, prc, dt.now()]
-            r = self._try_to_write(msg, data)
+            r, e = self._try_to_write(msg, data)
+
+            self._sql_log(name, msg, r, e)
 
         elif tp == 'dsk':
             ltr, ttl, free, prc = self.re_disk.findall(msg)[0]
-            print(f'name:{name} tp:{tp} ltr:{ltr} ttl:{ttl} ' +
-                  f'free:{free} prc:{prc}')
+            # print(f'name:{name} tp:{tp} ltr:{ltr} ttl:{ttl} ' +
+            #       f'free:{free} prc:{prc}')
 
             msg = 'insert into Disk values(?, ?, ?, ?, ?, ?)'
             data = [name, ltr, ttl, free, prc, dt.now()]
-            r = self._try_to_write(msg, data)
+            r, e = self._try_to_write(msg, data)
+
+            self._sql_log(name, msg, r, e)
 
         else:
             print(f'ОШИБКА команды "{msg}"!')
@@ -245,10 +268,16 @@ class Server:
         )
         self.retype = re.compile(r'type:([a-z]+)')
 
-        print('Запуск сервера...')
+        self.txt_log_file = 'sys_monitor_log.txt'
+
+        self._txt_log('Запуск сервера...')
 
         # Запуск сервера
         self.server()
+
+    def _txt_log(self, msg):
+        with open(self.txt_log_file, 'a', encoding='utf-8') as log:
+            log.write(f'{dt.now()} : {msg}\n')
 
     def server(self):
         # Настройка соединения
@@ -257,20 +286,20 @@ class Server:
         server_socket.bind((self.address, self.port))
         server_socket.listen()
 
-        print('Жду клиентов...')
+        self._txt_log('Жду клиентов...')
 
         # Обработка клиентов
         while True:
             client_socket, addr = server_socket.accept()
 
-            print(f'Идет подключение {addr}!')
+            self._txt_log(f'Идет подключение {addr}!')
 
             t = Thread(target=self.client_handler,
                        args=(client_socket, addr),
                        daemon=True)
             t.start()
 
-            print(f'Поток запущен {addr}!')
+            self._txt_log(f'Поток запущен {addr}!')
 
     def client_handler(self, client_socket, addr):
         # Аутентификация
@@ -283,17 +312,17 @@ class Server:
             login = self.relogin.findall(request.decode())[0]
 
             if self.db_conn.authentication(login[0], login[1]):
-                print(f'Аутентификация {addr} -> {login[0]}!')
+                self._txt_log(f'Аутентификация {addr} -> {login[0]}!')
                 client_socket.send('Аутентификация пройдена'.encode())
             else:
-                print(f'Ошибка имени или ключа {addr} -> {login[0]}!')
+                self._txt_log(f'Ошибка имени или ключа {addr} -> {login[0]}!')
                 client_socket.send('Ошибка в имени или ключе'.encode())
                 client_socket.close()
-                print(f'Соединение с {addr} закрыто!')
+                self._txt_log(f'Соединение с {addr} закрыто!')
                 return
         else:
             client_socket.close()
-            print(f'Соединение с {addr} закрыто!')
+            self._txt_log(f'Соединение с {addr} закрыто!')
             return
 
         # Обработка запросов клиента
@@ -306,16 +335,18 @@ class Server:
             if request:
                 # Обмен сообщениями
                 msg = request.decode()
-                print(f'Сообщение "{msg}" от {login[0]} {addr}!')
-
                 tp = self.retype.findall(msg)[0]
-
                 r = self.db_conn.write_data(login[0], tp, msg)
+
+                if r == '+':
+                    self._txt_log(f'Сообщение "{msg}" от {login[0]} {addr}!')
+                else:
+                    self._txt_log(f'Ошибка при записи "{msg}" от {login[0]} {addr}!')
 
                 client_socket.send(r.encode())
             else:
                 client_socket.close()
-                print(f'Соединение с {addr} закрыто!')
+                self._txt_log(f'Соединение с {addr} закрыто!')
                 return
 
 
