@@ -13,12 +13,12 @@ class Spectator:
 
     '''
     def get_data(self, tp):
-        if tp == 'cpu':
+        if tp == 'cpu':  # -> str
             prc = int(psutil.cpu_percent())
 
             return f'type:cpu prc:{prc}'
 
-        elif tp == 'ram':
+        elif tp == 'ram':  # -> str
             ram = psutil.virtual_memory()
 
             ttl = ram.total
@@ -27,7 +27,7 @@ class Spectator:
 
             return f'type:ram ttl:{ttl} avl:{avl} prc:{prc}'
 
-        elif tp == 'swp':
+        elif tp == 'swp':  # -> str
             swp = psutil.swap_memory()
 
             ttl = swp.total
@@ -36,8 +36,7 @@ class Spectator:
 
             return f'type:swp ttl:{ttl} free:{free} prc:{prc}'
 
-        # Отправляет данные только о первом диске!
-        elif tp == 'dsk':
+        elif tp == 'dsk':  # -> list
             drives = psutil.disk_partitions(all=False)
             paths = [x.mountpoint for x in drives if x.opts == 'rw,fixed']
             result = []
@@ -53,7 +52,7 @@ class Spectator:
                 t = f'type:dsk ltr:{ltr} ttl:{ttl} free:{free} prc:{prc}'
                 result.append(t)
 
-            return result[0]
+            return result  # ['...', '...', '...', ...]
 
         else:
             raise TypeError('Неправильно указан запрошенный тип')
@@ -112,11 +111,13 @@ class Client:
         Thread(target=self.monitor, args=('cpu', self.cpu_timer)).start()
         Thread(target=self.monitor, args=('ram', self.ram_timer)).start()
         Thread(target=self.monitor, args=('swp', self.swp_timer)).start()
-        Thread(target=self.monitor, args=('dsk', self.dsk_timer)).start()
+        Thread(target=self.li_monitor, args=('dsk', self.dsk_timer)).start()
 
     def monitor(self, tp, period):
         while True:
             data = self.spectator.get_data(tp)
+
+            # Исключение если сервер не получит запрос или не вернет ответ
             self.client_socket.send(data.encode())
             respr = self.client_socket.recv(self.msg_size).decode()
 
@@ -128,6 +129,28 @@ class Client:
 
             else:
                 print(f'Нераспознаный ответ сервера - {respr}')
+
+            sleep(period)
+
+    def li_monitor(self, tp, period):
+        while True:
+            data = self.spectator.get_data(tp)
+
+            for n in data:
+                # Исключение если сервер не получит запрос или не вернет ответ
+                self.client_socket.send(n.encode())
+                respr = self.client_socket.recv(self.msg_size).decode()
+
+                if respr == '-':
+                    print(f'Сервер сообщает об ошибке при попытке записи {n}')
+
+                elif respr == '+':
+                    print(f'Запись успешна {n}')
+
+                else:
+                    print(f'Нераспознаный ответ сервера - {respr}')
+
+                sleep(2)
 
             sleep(period)
 
