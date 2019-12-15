@@ -339,9 +339,9 @@ class Server:
                 r = self.db_conn.write_data(login[0], tp, msg)
 
                 if r == '+':
-                    self._txt_log(f'Сообщение "{msg}" от {login[0]} {addr}!')
+                    self._txt_log(f'Запись "{msg}" от {login[0]} {addr}!')
                 else:
-                    self._txt_log(f'Ошибка при записи "{msg}" от {login[0]} {addr}!')
+                    self._txt_log(f'Ошибка "{msg}" от {login[0]} {addr}!')
 
                 client_socket.send(r.encode())
             else:
