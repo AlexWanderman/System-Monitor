@@ -57,7 +57,7 @@ CREATE TABLE "Swap" (
 
 
 type:dsk ltr:([a-z]) ttl:([0-9]+) free:([0-9]+) prc:([0-9]+)
-type:dsk ltr:C:\\ ttl:5234 free:1342 prc:73
+type:dsk ltr:c ttl:5234 free:1342 prc:73
 
 CREATE TABLE "Disk" (
     "name" TEXT NOT NULL,

@@ -210,7 +210,7 @@ class DataBaseConnection:
             ttl, avl, prc = self.re_ram.findall(msg)[0]
             # print(f'name:{name} tp:{tp} ttl:{ttl} avl:{avl} prc:{prc}')
 
-            msg = 'insert into Swap values(?, ?, ?, ?, ?)'
+            msg = 'insert into RAM values(?, ?, ?, ?, ?)'
             data = [name, ttl, avl, prc, dt.now()]
             r, e = self._try_to_write(msg, data)
 

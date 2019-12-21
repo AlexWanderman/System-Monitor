@@ -100,12 +100,12 @@ class Client:
         self.client_socket.send(login.encode())
         respr = self.client_socket.recv(self.msg_size)
 
-        if respr.decode() != 'Аутентификация пройдена':
-            print(respr.decode())
+        if respr.decode() != '+':
+            print('Аутентификация не пройдена')
             self.client_socket.close()
             return
 
-        print(respr.decode())
+        print('Аутентификация пройдена')
 
         # Запуск потоков, для отправки данных по параметрам
         Thread(target=self.monitor, args=('cpu', self.cpu_timer)).start()
@@ -122,13 +122,13 @@ class Client:
             respr = self.client_socket.recv(self.msg_size).decode()
 
             if respr == '-':
-                print(f'Сервер сообщает об ошибке при попытке записи {data}')
+                print(f'- Ошибка: {data}')
 
             elif respr == '+':
-                print(f'Запись успешна {data}')
+                print(f'+ Запись: {data}')
 
             else:
-                print(f'Нераспознаный ответ сервера - {respr}')
+                print(f'~ Ответ: {respr}')
 
             sleep(period)
 
@@ -142,13 +142,13 @@ class Client:
                 respr = self.client_socket.recv(self.msg_size).decode()
 
                 if respr == '-':
-                    print(f'Сервер сообщает об ошибке при попытке записи {n}')
+                    print(f'- Ошибка: {n}')
 
                 elif respr == '+':
-                    print(f'Запись успешна {n}')
+                    print(f'+ Запись: {n}')
 
                 else:
-                    print(f'Нераспознаный ответ сервера - {respr}')
+                    print(f'~ Ответ: {respr}')
 
                 sleep(2)
 
@@ -157,7 +157,7 @@ class Client:
 
 if __name__ == "__main__":
     ip = 'localhost'
-    port = 5000
+    port = 80
     name = input('name: ')
     key = input('key: ')
     client = Client(ip, port, name, key)

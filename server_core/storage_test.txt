@@ -1,0 +1,53 @@
+Набор тестов для модуля storage
+
+=== Настройка ===
+>>> from os import remove
+>>> from server_core.storage import Storage
+>>> test = Storage('doctest.db')
+
+=== Создание БД ===
+>>> test.setup_database()
+[]
+
+=== Учетные записи ===
+>>> test.create_user('test1', 'key1')
+[]
+>>> test.create_user('test2', 'key2')
+[]
+>>> test.create_user('test1', 'key1')
+IntegrityError('UNIQUE constraint failed: Login.name')
+>>> test.create_user('test1')
+Traceback (most recent call last):
+...
+TypeError: create_user() missing 1 required positional argument: 'key'
+>>> test.check_user('test1', 'ps1')
+[]
+>>> test.check_user('test1', 'key1')
+[('test1', 1)]
+>>> test.show_users()
+[('test1', 1), ('test2', 1)]
+>>> test.show_users(with_key=True)
+[('test1', 'key1', 1), ('test2', 'key2', 1)]
+>>> test.delete_user('wrong_name')
+[]
+>>> test.delete_user('test2')
+[]
+>>> test.edit_user('test1', name='name')
+[]
+>>> test.show_users()
+[('name', 1)]
+
+=== Работа с данными ===
+>>> test.add_user_data('name', 'type:cpu prc:43')
+[]
+>>> test.add_user_data('name', 'type:ram ttl:4535 avl:4345 prc:54')
+[]
+>>> test.add_user_data('name', 'type:swp ttl:4535 free:4345 prc:54')
+[]
+>>> test.add_user_data('name', 'type:dsk ltr:c ttl:5234 free:1342 prc:73')
+[]
+>>> test.del_user_data('name', 'cpu')
+[]
+
+=== Удаляем тестовую БД ===
+>>> remove('doctest.db')
