@@ -1,0 +1,60 @@
+Идеи:
++ Добавить отслеживание файловой системы дисков
++ Проверять "фиксированность" дисков не 'rw,fixed', а только на '...,fixed'
++ Изменить алгоритм передачи данных о дисках:
+    Регулярное выражение принимает только одну букву a-z, что если это не будет работать?
+
+Сообщение об успешной аутентификации - "Аутентификация пройдена"
+Сооющение о неудачной аутентификации - "Ошибка в имени или ключе"
+
+Ответ на запросы: (доработать)
+Удачно - "+"
+Ошибка - "-"
+
+Exception has occurred: IntegrityError
+UNIQUE constraint failed: Login.name
+
+>>> import psutil
+
+>>> psutil.cpu_percent()
+1.6
+
+>>> ram = psutil.virtual_memory()
+>>> ram.total
+34235043840
+>>> ram.available
+22537478144
+>>> ram.percent
+34.2
+
+>>> psutil.swap_memory()
+sswap(total=39335317504, used=15900024832, free=23435292672, percent=40.4, sin=0, sout=0)
+
+>>> psutil.disk_partitions(all=False)
+[sdiskpart(device='C:\\', mountpoint='C:\\', fstype='NTFS', opts='rw,fixed'),
+ sdiskpart(device='D:\\', mountpoint='D:\\', fstype='NTFS', opts='rw,fixed'),
+ sdiskpart(device='E:\\', mountpoint='E:\\', fstype='NTFS', opts='rw,fixed'),
+ sdiskpart(device='F:\\', mountpoint='F:\\', fstype='FAT32', opts='rw,removable')]
+>>> psutil.disk_usage('D:\\')
+sdiskusage(total=2000263573504, used=922719735808, free=1077543837696, percent=46.1)
+
+>>> def test(n):
+...     try:
+...         assert n
+...     except Exception:
+...         print('f')
+...         return False
+...     else:
+...         print('t')
+...         return True
+...     finally:
+...         print('end')
+...
+>>> test(True)
+t
+end
+True
+>>> test(False)
+f
+end
+False
