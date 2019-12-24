@@ -77,7 +77,7 @@ class Client:
         self.name = name
         self.key = key
 
-        self.msg_size = 512
+        self.msg_size = 64
         self.client_socket = None
         self.spectator = Spectator()
 
@@ -156,8 +156,8 @@ class Client:
 
 
 if __name__ == "__main__":
-    ip = 'localhost'
-    port = 80
+    ip = input('server address: ')
+    port = int(input('server port: '))
     name = input('name: ')
     key = input('key: ')
     client = Client(ip, port, name, key)

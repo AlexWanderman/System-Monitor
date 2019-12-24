@@ -1,6 +1,5 @@
 '''Реализует функции работы с базой данных'''
 
-import re
 from datetime import datetime as dt
 from sqlite3 import DatabaseError, connect
 
